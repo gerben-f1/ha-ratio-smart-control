@@ -24,33 +24,34 @@ class RatioTargetSensor(SensorEntity):
         try:
             h = self.hass.states.get
             
-            # 1. Haal de hoogste stroomwaarde op die NU door de hoofdzekering gaat (P1 meter)
+            # 1. Haal P1 Grid data op (Totaalverbruik woning + lader)
             g1 = float(h(self._config["l1_grid"]).state or 0)
             g2 = float(h(self._config["l2_grid"]).state or 0)
             g3 = float(h(self._config["l3_grid"]).state or 0)
-            current_grid_max = max(g1, g2, g3)
             
-            # 2. Haal op wat de lader op dit moment daadwerkelijk verbruikt (Modbus)
-            # We kijken naar de hoogste waarde van de lader om veilig te blijven
+            # 2. Haal Lader data op (Wat de lader nu verbruikt)
             r1 = float(h(self._config["l1_ratio"]).state or 0)
             r2 = float(h(self._config["l2_ratio"]).state or 0)
             r3 = float(h(self._config["l3_ratio"]).state or 0)
-            current_charger_max = max(r1, r2, r3)
 
-            # 3. Bereken de vrije ruimte op de zekering
-            # Ruimte = Hoofdzekering (25) - Huidige belasting Grid - Veiligheidsmarge (2)
-            spare_capacity = self._config["max_main_fuse"] - current_grid_max - self._config["safety_margin"]
+            # 3. Bereken puur huisverbruik per fase (Grid minus Lader)
+            # Dit is de belasting van apparaten zoals oven, wasmachine, etc.
+            house_l1 = max(g1 - r1, 0)
+            house_l2 = max(g2 - r2, 0)
+            house_l3 = max(g3 - r3, 0)
             
-            # 4. Nieuwe Target = Wat de lader nu al doet + de vrije ruimte die we nog hebben
-            # Voorbeeld: Lader doet 14A, we hebben 5A over op P1 -> Target wordt 19A.
-            calculated_target = current_charger_max + spare_capacity
+            # 4. Pak de drukste fase in huis
+            busiest_house_phase = max(house_l1, house_l2, house_l3)
             
-            # 5. Pas de harde grenzen toe
-            # Nooit hoger dan de Max Charger Limit (bijv. 18A) en nooit lager dan 6A
-            final_target = min(calculated_target, self._config["max_charger_limit"])
+            # 5. Bereken beschikbare ruimte op de 25A hoofdzekering
+            # Geen marge meer: 25A - huisverbruik
+            available_for_charger = 25.0 - busiest_house_phase
+            
+            # 6. Begrenzen op jouw harde limiet van 18A (en minimaal 6A)
+            final_target = min(available_for_charger, 18.0)
             final_target = max(6, int(final_target))
 
-            _LOGGER.debug(f"Ratio Calc: GridMax={current_grid_max}, ChargerMax={current_charger_max}, Spare={spare_capacity}, Target={final_target}")
+            _LOGGER.debug(f"Ratio Calc: House Max={busiest_house_phase}, Available={available_for_charger}, Target={final_target}")
             
             return final_target
 
@@ -71,7 +72,6 @@ class RatioStatusSensor(SensorEntity):
         if not s:
             return "Onbekend"
         
-        # Statussen zoals doorgegeven door gebruiker
         state_map = {
             "0": "Stand-by (Vrij)",
             "1": "Stand-by (Verbonden)",
