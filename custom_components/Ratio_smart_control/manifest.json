@@ -1,0 +1,11 @@
+{
+  "domain": "ratio_smart_control",
+  "name": "Ratio Smart Charging Control",
+  "version": "1.2.2",
+  "documentation": "https://github.com/jouwgebruikersnaam/jouw-repo",
+  "issue_tracker": "https://github.com/jouwgebruikersnaam/jouw-repo/issues",
+  "dependencies": ["modbus"],
+  "codeowners": ["@jouwgebruikersnaam"],
+  "config_flow": true,
+  "iot_class": "local_polling"
+}
