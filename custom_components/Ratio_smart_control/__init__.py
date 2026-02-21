@@ -1,39 +1,67 @@
 import asyncio
 import logging
-from .const import DOMAIN, MODBUS_HUB, SLAVE_ID, REGISTER_WRITE_AMPERAGE, SLOW_UP_DELAY, STEP_SIZE
+from homeassistant.helpers.event import async_track_time_interval
+from datetime import timedelta
+from .const import DOMAIN, MODBUS_HUB, SLAVE_ID, REGISTER_WRITE_AMPERAGE
 
 _LOGGER = logging.getLogger(__name__)
+
+# De twee belangrijke sensoren voor de check
+TARGET_SENSOR_ID = "sensor.ratio_smart_control_target"
+CURRENT_LIMIT_ID = "sensor.ratio_current_limit"
 
 async def async_setup_entry(hass, entry):
     conf = entry.data
 
     async def update_charger(val):
-        await hass.services.async_call("modbus", "write_register", {
-            "hub": MODBUS_HUB, "slave": SLAVE_ID, "address": REGISTER_WRITE_AMPERAGE, "value": int(val)
-        })
+        _LOGGER.info(f"Ratio Smart Control: Aanpassen van lader limiet naar {val}A")
+        try:
+            await hass.services.async_call("modbus", "write_register", {
+                "hub": MODBUS_HUB, 
+                "slave": SLAVE_ID, 
+                "address": REGISTER_WRITE_AMPERAGE, 
+                "value": int(val)
+            })
+        except Exception as e:
+            _LOGGER.error(f"Ratio Smart Control: Fout bij schrijven naar Modbus: {e}")
 
-    async def handle_logic(event):
-        if event.data.get("entity_id") != f"sensor.ratio_smart_control_target": return
+    async def check_and_adjust(now=None):
+        # 1. Haal de berekende target op
+        target_state = hass.states.get(TARGET_SENSOR_ID)
+        # 2. Haal de huidige limiet uit de lader op (Register 16398)
+        current_limit_state = hass.states.get(CURRENT_LIMIT_ID)
+        # 3. Haal de laadstatus op
+        status_state = hass.states.get(conf["ratio_state_sensor"])
         
-        new_state = event.data.get("new_state")
-        if not new_state or new_state.state in ["unknown", "unavailable"]: return
-        
-        target = int(float(new_state.state))
-        # Gebruik de hoogste waarde van de 3 fases van de lader als referentie voor huidige stroom
-        h = hass.states.get
-        current_val = max(float(h(conf["l1_ratio"]).state or 0), float(h(conf["l2_ratio"]).state or 0), float(h(conf["l3_ratio"]).state or 0))
-        status_state = h(conf["ratio_state_sensor"])
+        # Veiligheidscheck: bestaan alle sensoren?
+        if not target_state or not current_limit_state or not status_state:
+            _LOGGER.debug("Ratio Smart Control: Wachten op sensoren...")
+            return
 
-        if not status_state or status_state.state != "5": return
-        
-        if target < current_val:
-            await update_charger(target)
-        elif target > (current_val + 1): # Kleine marge om onnodig sturen te voorkomen
-            await asyncio.sleep(SLOW_UP_DELAY)
-            latest = int(float(hass.states.get(f"sensor.ratio_smart_control_target").state))
-            if latest > current_val:
-                await update_charger(min(current_val + STEP_SIZE, latest))
+        # Stop als waarden onbekend zijn
+        if target_state.state in ["unknown", "unavailable"] or current_limit_state.state in ["unknown", "unavailable"]:
+            return
 
-    hass.bus.async_listen("state_changed", handle_logic)
+        try:
+            target = int(float(target_state.state))
+            current_limit = int(float(current_limit_state.state))
+
+            # Alleen bijsturen als de lader echt aan het laden is (Status 5)
+            if status_state.state == "5":
+                # Als de lader niet op de gewenste waarde staat, stuur update
+                if target != current_limit:
+                    await update_charger(target)
+            else:
+                _LOGGER.debug(f"Ratio Smart Control: Geen actie nodig, status is {status_state.state}")
+                
+        except ValueError:
+            _LOGGER.error("Ratio Smart Control: Kon sensorwaarden niet omzetten naar getallen")
+
+    # Controleer elke 15 seconden of de lader nog goed staat
+    async_track_time_interval(hass, check_and_adjust, timedelta(seconds=15))
+    
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
     return True
+
+async def async_unload_entry(hass, entry):
+    return await hass.config_entries.async_unload_platforms(entry, ["sensor"])
