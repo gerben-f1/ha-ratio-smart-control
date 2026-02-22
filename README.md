@@ -130,6 +130,7 @@ Step 1: Add to HACS
 1. Open HACS in Home Assistant.
 2. Click the three dots in the top right corner and select Custom repositories.
 3. Paste the URL of this GitHub repository.
+(https://github.com/gerben-f1/ha-ratio-smart-control)
 4. Select Integration as the category and click Add.
 5. Find Ratio Smart Charging Control and click Download.
 6. Restart Home Assistant.
