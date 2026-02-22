@@ -20,34 +20,140 @@ modbus:
     bytesize: 8
     parity: N
     timeout: 5
-    sensors:
+        sensors:
+      - name: "Ratio Firmware Version"
+        address: 16388
+        slave: 127
+        input_type: input
+        data_type: uint32
+      - name: "Ratio User Max Current"
+        address: 16390
+        slave: 127
+        input_type: input
+        data_type: uint32
+        scale: 0.1
+        precision: 1
+        unit_of_measurement: A
+        device_class: current
+      - name: "Ratio Error Code"
+        address: 16392
+        slave: 127
+        input_type: input
+        data_type: uint32
+      - name: "Ratio Socket Lock State"
+        address: 16394
+        slave: 127
+        input_type: input
+        data_type: uint32
       - name: "Ratio Charging State"
         unique_id: ratio_charging_state
         address: 16396
         slave: 127
         input_type: input
         data_type: uint32
+      - name: "Ratio Current Limit"
+        address: 16398
+        slave: 127
+        input_type: input
+        data_type: uint32
+        scale: 0.1
+        unit_of_measurement: A
+        device_class: current
       - name: "Ratio Current L1"
+        unique_id: current_l1
         address: 16400
         slave: 127
         input_type: input
         data_type: uint32
         scale: 0.1
+        precision: 1
         unit_of_measurement: A
+        device_class: current
       - name: "Ratio Current L2"
+        unique_id: current_l2
         address: 16402
         slave: 127
         input_type: input
         data_type: uint32
         scale: 0.1
+        precision: 1
         unit_of_measurement: A
+        device_class: current
       - name: "Ratio Current L3"
+        unique_id: current_l3
         address: 16404
         slave: 127
         input_type: input
         data_type: uint32
         scale: 0.1
+        precision: 1
         unit_of_measurement: A
+        device_class: current
+      - name: "Ratio Voltage L1"
+        address: 16406
+        slave: 127
+        input_type: input
+        data_type: uint32
+        scale: 0.1
+        unit_of_measurement: V
+        device_class: voltage
+      - name: "Ratio Voltage L2"
+        address: 16408
+        slave: 127
+        input_type: input
+        data_type: uint32
+        scale: 0.1
+        unit_of_measurement: V
+        device_class: voltage
+      - name: "Ratio Voltage L3"
+        address: 16410
+        slave: 127
+        input_type: input
+        data_type: uint32
+        scale: 0.1
+        unit_of_measurement: V
+        device_class: voltage
+      - name: "Ratio Active Power"
+        address: 16412
+        slave: 127
+        input_type: input
+        data_type: uint32
+        unit_of_measurement: W
+        device_class: power
+      - name: "Ratio Total Energy"
+        address: 16414
+        slave: 127
+        input_type: input
+        data_type: uint32
+        scale: 0.001
+        precision: 1
+        unit_of_measurement: kWh
+        device_class: energy
+        state_class: total_increasing
+      - name: "Ratio Session Energy"
+        address: 16416
+        slave: 127
+        input_type: input
+        data_type: uint32
+        scale: 0.001
+        precision: 2
+        unit_of_measurement: kWh
+        device_class: energy
+      - name: "Ratio Comm Timeout"
+        address: 16418
+        slave: 127
+        input_type: input
+        data_type: uint32
+      - name: "Ratio Modbus Address Status"
+        address: 16420
+        slave: 127
+        input_type: input
+        data_type: uint32
+      - name: "Ratio Modbus Mode"
+        address: 16422
+        slave: 127
+        input_type: input
+        data_type: uint32
     numbers:
       - name: "Ratio Laadstroom Limiet"
         unique_id: ratio_charging_limit
