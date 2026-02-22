@@ -21,6 +21,6 @@ class RatioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required("ratio_state_sensor"): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
                 vol.Required("max_main_fuse", default=25): int,
                 vol.Required("max_charger_limit", default=18): int,
-                vol.Required("safety_margin", default=0): int,
+                vol.Required("safety_margin", default=1): int,
             })
         )
