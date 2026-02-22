@@ -1,7 +1,7 @@
 {
   "domain": "ratio_smart_control",
   "name": "Ratio Smart Charging Control",
-  "version": "1.2.4",
+  "version": "1.0.0",
   "documentation": "https://github.com/gerben-f1/ha-ratio-smart-control",
   "issue_tracker": "https://github.com/gerben-f1/ha-ratio-smart-control/issues",
   "dependencies": ["modbus"],
