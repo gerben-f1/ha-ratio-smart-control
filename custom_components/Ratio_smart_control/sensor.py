@@ -17,6 +17,7 @@ class RatioTargetSensor(SensorEntity):
         self._attr_name = "Ratio Smart Control Target"
         self.entity_id = "sensor.ratio_smart_control_target"
         self._attr_unique_id = "ratio_target_calculation_fixed"
+        # Gecorrigeerd naar AMPERE (zonder S)
         self._attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
         self._attr_icon = "mdi:target-variant"
 
@@ -24,18 +25,23 @@ class RatioTargetSensor(SensorEntity):
     def native_value(self):
         try:
             s = self.hass.states.get
+            # Grid (P1)
             g1 = float(s(self._config["l1_grid"]).state or 0)
             g2 = float(s(self._config["l2_grid"]).state or 0)
             g3 = float(s(self._config["l3_grid"]).state or 0)
+            # Lader
             r1 = float(s(self._config["l1_ratio"]).state or 0)
             r2 = float(s(self._config["l2_ratio"]).state or 0)
             r3 = float(s(self._config["l3_ratio"]).state or 0)
 
+            # Bereken puur huisverbruik per fase en pak de hoogste
             house_max = max(max(g1-r1, 0), max(g2-r2, 0), max(g3-r3, 0))
+            
+            # Beschikbaar op 25A
             available = 25.0 - house_max
             
-            # Verhoogd naar 18.99 om de 'int' afronding naar 18 te forceren
-            target = min(available, 18.00)
+            # Limiet op max 18A (met 0.9 marge voor de integer afronding)
+            target = min(available, 18.9)
             return max(6, int(target))
         except Exception as e:
             _LOGGER.error(f"Ratio Fout in berekening: {e}")
