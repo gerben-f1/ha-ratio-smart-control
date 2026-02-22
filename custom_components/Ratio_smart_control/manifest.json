@@ -5,6 +5,6 @@
   "dependencies": ["modbus"],
   "documentation": "https://github.com/gerben-f1/ratio_smart_control",
   "iot_class": "local_polling",
-  "version": "1.0.0",
+  "version": "1.2.3",
   "requirements": []
 }
