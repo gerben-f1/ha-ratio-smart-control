@@ -3,7 +3,7 @@
   "name": "Ratio Smart Control",
   "codeowners": ["@Gerbenf1"],
   "dependencies": ["modbus"],
-  "documentation": "https://github.com/jouwgebruikersnaam/ratio_smart_control",
+  "documentation": "https://github.com/gerben-f1/ratio_smart_control",
   "iot_class": "local_polling",
   "version": "1.0.0",
   "requirements": []
