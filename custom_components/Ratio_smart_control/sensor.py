@@ -5,6 +5,11 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
+# Instellingen voor de berekening
+MAIN_FUSE = 25.0
+SAFETY_MARGIN = 2.0
+MAX_CHARGER_LIMIT = 18.0
+
 async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([
         RatioTargetSensor(entry.data),
@@ -17,7 +22,6 @@ class RatioTargetSensor(SensorEntity):
         self._attr_name = "Ratio Smart Control Target"
         self.entity_id = "sensor.ratio_smart_control_target"
         self._attr_unique_id = "ratio_target_calculation_fixed"
-        # Gecorrigeerd naar AMPERE (zonder S)
         self._attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
         self._attr_icon = "mdi:target-variant"
 
@@ -25,23 +29,30 @@ class RatioTargetSensor(SensorEntity):
     def native_value(self):
         try:
             s = self.hass.states.get
-            # Grid (P1)
+            # Haal Grid (P1) waarden op
             g1 = float(s(self._config["l1_grid"]).state or 0)
             g2 = float(s(self._config["l2_grid"]).state or 0)
             g3 = float(s(self._config["l3_grid"]).state or 0)
-            # Lader
+            
+            # Haal huidige lader verbruik op
             r1 = float(s(self._config["l1_ratio"]).state or 0)
             r2 = float(s(self._config["l2_ratio"]).state or 0)
             r3 = float(s(self._config["l3_ratio"]).state or 0)
 
-            # Bereken puur huisverbruik per fase en pak de hoogste
-            house_max = max(max(g1-r1, 0), max(g2-r2, 0), max(g3-r3, 0))
+            # Bereken verbruik van het huis (Grid minus wat de lader nu pakt)
+            house_l1 = max(g1 - r1, 0)
+            house_l2 = max(g2 - r2, 0)
+            house_l3 = max(g3 - r3, 0)
+            house_max = max(house_l1, house_l2, house_l3)
             
-            # Beschikbaar op 25A
-            available = 25.0 - house_max
+            # Berekening met expliciete marge:
+            # Beschikbaar = 25.0 - Huisverbruik - 2.0
+            available = MAIN_FUSE - house_max - SAFETY_MARGIN
             
-            # Limiet op max 18A (met 0.0 marge voor de integer afronding)
-            target = min(available, 18.0)
+            # We gebruiken 0.99 marge voor de 'int' afronding om op 18A uit te komen
+            target = min(available, MAX_CHARGER_LIMIT + 0.99)
+            
+            # Altijd minimaal 6A (Modbus standaard)
             return max(6, int(target))
         except Exception as e:
             _LOGGER.error(f"Ratio Fout in berekening: {e}")
