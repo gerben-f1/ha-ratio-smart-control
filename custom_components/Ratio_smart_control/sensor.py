@@ -40,8 +40,8 @@ class RatioTargetSensor(SensorEntity):
             # Beschikbaar op 25A
             available = 25.0 - house_max
             
-            # Limiet op max 18A (met 0.9 marge voor de integer afronding)
-            target = min(available, 18.9)
+            # Limiet op max 18A (met 0.0 marge voor de integer afronding)
+            target = min(available, 18.0)
             return max(6, int(target))
         except Exception as e:
             _LOGGER.error(f"Ratio Fout in berekening: {e}")
