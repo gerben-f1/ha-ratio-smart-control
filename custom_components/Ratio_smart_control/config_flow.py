@@ -9,6 +9,8 @@ class RatioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             return self.async_create_entry(title="Ratio Smart Control", data=user_input)
 
+        # We laten alleen de entiteit-selectors over. 
+        # De rekenwaarden (25A, 18A, 2A marge) zitten nu vast in sensor.py
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
@@ -19,8 +21,5 @@ class RatioConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required("l2_ratio"): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="current")),
                 vol.Required("l3_ratio"): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="current")),
                 vol.Required("ratio_state_sensor"): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-                vol.Required("max_main_fuse", default=25): int,
-                vol.Required("max_charger_limit", default=18): int,
-                vol.Required("safety_margin", default=2): int,
             })
         )
