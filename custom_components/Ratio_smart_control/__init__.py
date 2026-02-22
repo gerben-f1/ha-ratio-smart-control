@@ -6,7 +6,6 @@ from .const import DOMAIN, MODBUS_HUB, SLAVE_ID
 
 _LOGGER = logging.getLogger(__name__)
 
-# We kijken naar de nieuwe Target sensor en de Status tekst
 TARGET_SENSOR_ID = "sensor.ratio_smart_control_target"
 STATUS_SENSOR_ID = "sensor.ratio_lader_status"
 
@@ -31,12 +30,10 @@ async def async_setup_entry(hass, entry):
         t_state = hass.states.get(TARGET_SENSOR_ID)
         s_state = hass.states.get(STATUS_SENSOR_ID)
         
-        # 1. Basis check: is de sensor beschikbaar?
         if not t_state or t_state.state in ["unknown", "unavailable"]:
             return
 
-        # 2. Status check: Alleen sturen als de status 'Laden' is
-        # Dit voorkomt onnodig geklapper van relais als er geen auto is
+        # 1. Als we aan het laden zijn: volg de dynamische target
         if s_state and s_state.state == "Laden":
             try:
                 target_val = int(float(t_state.state))
@@ -44,20 +41,36 @@ async def async_setup_entry(hass, entry):
             except Exception as e:
                 _LOGGER.error(f"RATIO: Fout bij converteren target waarde: {e}")
 
-    # TRIGGER 1: Direct reageren als de Target sensor verandert (elke seconde mogelijk)
+    async def on_status_change(event):
+        """Wordt aangeroepen als de status van de lader verandert."""
+        old_state = event.data.get("old_state")
+        new_state = event.data.get("new_state")
+        
+        if not old_state or not new_state:
+            return
+
+        # Als de status verandert van 'Laden' naar iets anders (bijv. Stand-by of Klaar)
+        if old_state.state == "Laden" and new_state.state != "Laden":
+            _LOGGER.info("RATIO: Laden gestopt of auto ontkoppeld. Reset naar 6A.")
+            await update_charger(6)
+
+    # Luister naar veranderingen in de Target (voor tijdens het laden)
     entry.async_on_unload(
         async_track_state_change_event(hass, [TARGET_SENSOR_ID], check_and_adjust)
     )
     
-    # TRIGGER 2: Elke 3 seconden een extra check (vangnet)
+    # Luister naar statusveranderingen (voor de reset naar 6A)
+    entry.async_on_unload(
+        async_track_state_change_event(hass, [STATUS_SENSOR_ID], on_status_change)
+    )
+    
+    # Elke 3 seconden vangnet (alleen als status 'Laden' is)
     entry.async_on_unload(
         async_track_time_interval(hass, check_and_adjust, timedelta(seconds=3))
     )
     
-    # Start de sensoren
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
     return True
 
 async def async_unload_entry(hass, entry):
-    """Unload de integratie."""
     return await hass.config_entries.async_unload_platforms(entry, ["sensor"])
