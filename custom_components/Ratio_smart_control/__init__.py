@@ -1,12 +1,11 @@
 import asyncio
 import logging
-from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.event import async_track_time_interval, async_track_state_change_event
 from datetime import timedelta
-from .const import DOMAIN, MODBUS_HUB, SLAVE_ID, REGISTER_WRITE_AMPERAGE
+from .const import DOMAIN, MODBUS_HUB, SLAVE_ID
 
 _LOGGER = logging.getLogger(__name__)
 
-# De twee belangrijke sensoren voor de check
 TARGET_SENSOR_ID = "sensor.ratio_smart_control_target"
 CURRENT_LIMIT_ID = "sensor.ratio_current_limit"
 
@@ -14,50 +13,43 @@ async def async_setup_entry(hass, entry):
     conf = entry.data
 
     async def update_charger(val):
-        _LOGGER.info(f"Ratio Smart Control: Aanpassen van lader limiet naar {val}A")
+        _LOGGER.warning(f"RATIO ACTIE: Schrijven naar 16640 -> {val}A")
         try:
             await hass.services.async_call("modbus", "write_register", {
                 "hub": MODBUS_HUB, 
                 "slave": SLAVE_ID, 
-                "address": REGISTER_WRITE_AMPERAGE, 
+                "address": 16640, 
                 "value": int(val)
             })
         except Exception as e:
-            _LOGGER.error(f"Ratio Smart Control: Fout bij schrijven naar Modbus: {e}")
+            _LOGGER.error(f"RATIO FOUT: Modbus schrijven mislukt: {e}")
 
-    async def check_and_adjust(now=None):
-        # 1. Haal de berekende target op
-        target_state = hass.states.get(TARGET_SENSOR_ID)
-        # 2. Haal de huidige limiet uit de lader op (Register 16398)
-        current_limit_state = hass.states.get(CURRENT_LIMIT_ID)
-        # 3. Haal de laadstatus op
+    async def check_and_adjust(event_or_now=None):
+        t_state = hass.states.get(TARGET_SENSOR_ID)
+        c_state = hass.states.get(CURRENT_LIMIT_ID)
+        # Haal de ruwe status op (bijv. "5")
         status_state = hass.states.get(conf["ratio_state_sensor"])
         
-        # Veiligheidscheck: bestaan alle sensoren?
-        if not target_state or not current_limit_state or not status_state:
-            _LOGGER.debug("Ratio Smart Control: Wachten op sensoren...")
+        if not t_state or not c_state or not status_state:
             return
 
-        # Stop als waarden onbekend zijn
-        if target_state.state in ["unknown", "unavailable"] or current_limit_state.state in ["unknown", "unavailable"]:
+        # VEILIGHEID: Alleen actie ondernemen als de lader status "5" (Laden) heeft
+        if status_state.state != "5":
+            _LOGGER.debug(f"RATIO: Geen actie nodig, status is {status_state.state}")
             return
 
         try:
-            target = int(float(target_state.state))
-            current_limit = int(float(current_limit_state.state))
+            target = int(float(t_state.state))
+            current = int(float(c_state.state or 0))
 
-            # Alleen bijsturen als de lader echt aan het laden is (Status 5)
-            if status_state.state == "5":
-                # Als de lader niet op de gewenste waarde staat, stuur update
-                if target != current_limit:
-                    await update_charger(target)
-            else:
-                _LOGGER.debug(f"Ratio Smart Control: Geen actie nodig, status is {status_state.state}")
-                
-        except ValueError:
-            _LOGGER.error("Ratio Smart Control: Kon sensorwaarden niet omzetten naar getallen")
+            if target != current:
+                await update_charger(target)
+        except Exception as e:
+            _LOGGER.error(f"RATIO: Fout bij vergelijken: {e}")
 
-    # Controleer elke 15 seconden of de lader nog goed staat
+    # Directe listener voor snelle reactie
+    async_track_state_change_event(hass, [TARGET_SENSOR_ID], check_and_adjust)
+    # Backup timer (elke 15 sec)
     async_track_time_interval(hass, check_and_adjust, timedelta(seconds=15))
     
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
