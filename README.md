@@ -2,6 +2,8 @@
 
 This integration provides **Dynamic Load Balancing** for Ratio Electric EV Chargers using Home Assistant. It acts as the "brain" on top of a Modbus connection, ensuring your car charges as fast as possible without tripping your main fuse.
 
+before u can use it u need to push the charger in modbus mode.
+write 1 to modbus register 16650 on slave id: 127. hub name is the name of the modbus dongle name: modbus_ratio
 ---
 
 ## ✨ Features
