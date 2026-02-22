@@ -34,7 +34,7 @@ class RatioTargetSensor(SensorEntity):
             house_max = max(max(g1-r1, 0), max(g2-r2, 0), max(g3-r3, 0))
             available = 25.0 - house_max
             
-            # Verhoogd naar 18.00 om de 'int' afronding naar 18 te forceren
+            # Verhoogd naar 18.99 om de 'int' afronding naar 18 te forceren
             target = min(available, 18.00)
             return max(6, int(target))
         except Exception as e:
