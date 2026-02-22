@@ -1,15 +1,26 @@
-Ratio Smart Charging Control (HACS)
-This integration provides Dynamic Load Balancing for Ratio Electric EV Chargers using Home Assistant. It acts as the "brain" on top of a Modbus connection, ensuring your car charges as fast as possible without tripping your main fuse.
-Features
-• ⚡ Fast-Down Response: Instant current reduction when household power usage spikes (e.g., using a kettle or oven).
-• 📈 Stepped Slow-Up: Increases charging current in gentle 2A increments after 30 seconds of stability to prevent oscillation.
-• 🎯 Smart Calculation: Automatically determines the available room based on the busiest phase (3-phase support).
-• 📝 Human Readable Status: Translates Modbus codes (1-5) into clear text like "Charging" or "Finished".
-🛠 Prerequisites (Very Important!)
-Before installing this HACS integration, you must have a working Modbus connection to your Ratio charger. This integration uses a Serial/USB RS485 adapter.
-1. Modbus Configuration
-Add the following to your configuration.yaml. Note: Ensure the port matches your specific USB-to-RS485 stick ID.
+# ⚡ Ratio Smart Charging Control (HACS)
 
+This integration provides **Dynamic Load Balancing** for Ratio Electric EV Chargers using Home Assistant. It acts as the "brain" on top of a Modbus connection, ensuring your car charges as fast as possible without tripping your main fuse.
+
+---
+
+## ✨ Features
+* **⚡ Fast-Down Response:** Instant current reduction when household power usage spikes (e.g., using a kettle or oven).
+* **📈 Stepped Slow-Up:** Increases charging current in gentle increments after stability is detected to prevent oscillation.
+* **🎯 Smart Calculation:** Automatically determines the available room based on the busiest phase (3-phase support).
+* **📝 Human Readable Status:** Translates raw Modbus codes into clear text like "Charging", "Finished", or "Stand-by".
+
+---
+
+## 🛠 Prerequisites (Very Important!)
+Before installing this HACS integration, you must have a working **Modbus connection** to your Ratio charger. This integration is designed for setups using a Serial/USB RS485 adapter.
+
+### Modbus Configuration
+Add the following to your `configuration.yaml`. 
+> [!IMPORTANT]  
+> Ensure the `port` matches your specific USB-to-RS485 stick ID.
+
+```yaml
 modbus:
   - name: modbus_ratio
     type: serial
@@ -20,7 +31,7 @@ modbus:
     bytesize: 8
     parity: N
     timeout: 5
-        sensors:
+    sensors:
       - name: "Ratio Firmware Version"
         address: 16388
         slave: 127
@@ -97,22 +108,6 @@ modbus:
         scale: 0.1
         unit_of_measurement: V
         device_class: voltage
-      - name: "Ratio Voltage L2"
-        address: 16408
-        slave: 127
-        input_type: input
-        data_type: uint32
-        scale: 0.1
-        unit_of_measurement: V
-        device_class: voltage
-      - name: "Ratio Voltage L3"
-        address: 16410
-        slave: 127
-        input_type: input
-        data_type: uint32
-        scale: 0.1
-        unit_of_measurement: V
-        device_class: voltage
       - name: "Ratio Active Power"
         address: 16412
         slave: 127
@@ -130,58 +125,29 @@ modbus:
         unit_of_measurement: kWh
         device_class: energy
         state_class: total_increasing
-      - name: "Ratio Session Energy"
-        address: 16416
-        slave: 127
-        input_type: input
-        data_type: uint32
-        scale: 0.001
-        precision: 2
-        unit_of_measurement: kWh
-        device_class: energy
-      - name: "Ratio Comm Timeout"
-        address: 16418
-        slave: 127
-        input_type: input
-        data_type: uint32
-      - name: "Ratio Modbus Address Status"
-        address: 16420
-        slave: 127
-        input_type: input
-        data_type: uint32
-      - name: "Ratio Modbus Mode"
-        address: 16422
-        slave: 127
-        input_type: input
-        data_type: uint32
-    numbers:
-      - name: "Ratio Laadstroom Limiet"
-        unique_id: ratio_charging_limit
-        address: 16640
-        slave: 127
-        native_min_value: 6
-        native_max_value: 20
-        native_step: 1
-        unit_of_measurement: "A"
 🚀 Installation
 Step 1: Add to HACS
 1. Open HACS in Home Assistant.
 2. Click the three dots in the top right corner and select Custom repositories.
 3. Paste the URL of this GitHub repository.
 4. Select Integration as the category and click Add.
-5. Find "Ratio Smart Charging Control" and click Download.
+5. Find Ratio Smart Charging Control and click Download.
 6. Restart Home Assistant.
 Step 2: Configure the Integration
 1. Go to Settings > Devices & Services.
 2. Click Add Integration and search for Ratio Smart Charging Control.
 3. A configuration menu will appear. Select your sensors:
-• L1/L2/L3 Grid Sensors: Your P1 meter current sensors.
-• Ratio Current Sensor: Select sensor.ratio_current_l1 (or a combined total if available).
+• Grid Sensors (L1/L2/L3): Your P1 meter current sensors.
+• Ratio Current Sensors: Select the L1/L2/L3 sensors from the Modbus configuration above.
 • Ratio State Sensor: Select sensor.ratio_charging_state.
-• Settings: Define your main fuse (e.g., 25A) and your charger's circuit limit (e.g., 20A).
+• Settings: Define your main fuse limit (e.g., 25A).
 ⚙️ How it works
-The integration creates a hidden calculator that constantly monitors your grid usage.
-1. Safety First: If the total load on any phase exceeds your Main Fuse - Safety Margin, it sends a Modbus command to the charger to drop the current immediately.
-2. Stability: When the household load drops, the integration waits for 30 seconds. If the power is still available, it increases the charging rate by 2 Amperes. This repeats until the maximum allowed current is reached.
+The integration creates a background logic controller that constantly monitors your grid usage:
+1. Safety First: If the total load on any phase exceeds your Main Fuse limit, it sends a Modbus command to the charger to drop the current immediately.
+2. Stability: When household load drops, the integration ensures the power is stable before increasing the charging rate.
+3. Efficiency: It always tries to maximize the charging speed (up to 18A-20A depending on your hardware) while keeping your house safe.
 🤝 Support
-If you encounter issues with the Modbus connection, check your RS485 wiring (A and B wires) and ensure the Slave ID is set to 127.
+If you encounter issues with the Modbus connection:
+• Check your RS485 wiring (A and B wires).
+• Ensure the Slave ID is set to 127 (default for Ratio).
+• Check the Home Assistant logs for Modbus timeout errors.
