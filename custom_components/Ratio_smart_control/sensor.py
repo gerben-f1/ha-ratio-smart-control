@@ -25,12 +25,12 @@ class RatioTargetSensor(SensorEntity):
         try:
             s = self.hass.states.get
             
-            # 1. Haal Grid (P1) waarden op
+            # 1. Haal Grid (P1) waarden op per fase
             g1 = float(s(self._config["l1_grid"]).state or 0)
             g2 = float(s(self._config["l2_grid"]).state or 0)
             g3 = float(s(self._config["l3_grid"]).state or 0)
             
-            # 2. Haal huidige lader verbruik op
+            # 2. Haal Lader verbruik op per fase
             r1 = float(s(self._config["l1_ratio"]).state or 0)
             r2 = float(s(self._config["l2_ratio"]).state or 0)
             r3 = float(s(self._config["l3_ratio"]).state or 0)
@@ -40,16 +40,19 @@ class RatioTargetSensor(SensorEntity):
             h2 = max(g2 - r2, 0)
             h3 = max(g3 - r3, 0)
             
-            # 4. Pak de hoogste belasting in huis
+            # 4. Bepaal de zwaarst belaste fase in huis
             house_max = max(h1, h2, h3)
             
-            # 5. Berekening direct op 23A (25A hoofdzekering - 2A marge)
+            # 5. Bereken beschikbare ruimte op basis van 23A (25A zekering - 2A marge)
             available = 23.0 - house_max
             
-            # 6. Target tussen 6A en 18A (met .99 voor stabiele afronding)
-            target = min(available, 18.99)
+            # 6. Target begrenzen tussen 6A en 18A
+            # Zodra house_max > 5A (23 - 5 = 18), zakt de target onder de 18
+            target = min(available, 18.0)
             
-            return max(6, int(target))
+            final_value = max(6, int(target))
+
+            return final_value
 
         except Exception as e:
             _LOGGER.error(f"Ratio Fout in berekening: {e}")
@@ -70,6 +73,7 @@ class RatioStatusSensor(SensorEntity):
             if not state_val: 
                 return "Onbekend"
             
+            # Deze tekst "Laden" wordt door __init__.py gebruikt om te mogen schrijven
             mapping = {
                 "0": "Stand-by",
                 "1": "Verbonden",
