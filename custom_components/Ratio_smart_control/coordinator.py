@@ -9,9 +9,7 @@ _LOGGER = logging.getLogger(__name__)
 class RatioCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, entry):
         super().__init__(
-            hass,
-            _LOGGER,
-            name="Ratio Smart Control",
+            hass, _LOGGER, name="Ratio Smart Control",
             update_interval=timedelta(seconds=10),
         )
         self.entry = entry
@@ -23,68 +21,67 @@ class RatioCoordinator(DataUpdateCoordinator):
             s = self.hass.states.get
             conf = self.entry.data
 
-            def get_val(eid):
+            def get_val(eid, is_kw=False):
                 state = s(eid)
                 if state and state.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE, "unknown", "unavailable"):
                     try:
-                        return float(state.state)
-                    except ValueError:
+                        val = float(state.state)
+                        # Omrekenen: kW naar Watt, dan delen door 230V voor Ampère
+                        return (val * 1000 / 230) if is_kw else val
+                    except (ValueError, ZeroDivisionError):
                         return 0.0
                 return 0.0
 
-            # 1. Haal huidige Ampère waarden op
-            g1, g2, g3 = get_val(conf["l1_grid"]), get_val(conf["l2_grid"]), get_val(conf["l3_grid"])
-            r1, r2, r3 = get_val(conf["l1_ratio"]), get_val(conf["l2_ratio"]), get_val(conf["l3_ratio"])
-
-            # 2. ZONNESTROOM LOGICA:
-            # We berekenen het huisverbruik: P1-waarde minus wat de lader nu verbruikt.
-            # Als P1 negatief is (zon), wordt huis_verbruik ook negatief, wat de ruimte vergroot.
-            h1, h2, h3 = (g1 - r1), (g2 - r2), (g3 - r3)
+            # 1. Haal waarden op (Grid is kW -> omzetten naar A, Ratio is al A)
+            g1 = get_val(conf["l1_grid"], is_kw=True)
+            g2 = get_val(conf["l2_grid"], is_kw=True)
+            g3 = get_val(conf["l3_grid"], is_kw=True)
             
-            # We kijken welke fase het drukst is (hoogste huisverbruik)
+            r1 = get_val(conf["l1_ratio"], is_kw=False)
+            r2 = get_val(conf["l2_ratio"], is_kw=False)
+            r3 = get_val(conf["l3_ratio"], is_kw=False)
+
+            # 2. Bereken huisverbruik in Ampère (P1_netto - Lader)
+            # Dit werkt ook bij zonnestroom (als g negatief is, wordt h nog kleiner)
+            h1, h2, h3 = (g1 - r1), (g2 - r2), (g3 - r3)
             h_max = max(h1, h2, h3)
             
-            # Bereken ideaal doel (Hoofdzekering 25A - 2A marge = 23A)
-            # Voorbeeld: h_max is -10A (zon), dan wordt het: 23 - (-10) = 33A -> begrensd op 18A.
+            # 3. Bepaal Target (Max 23A beschikbaar op zekering)
             ideal_target = max(6.0, min(23.0 - h_max, 18.0))
 
-            # 3. Status check (Register 16396)
+            # 4. Status check
             status_obj = s(conf["ratio_state_sensor"])
             status_val = status_obj.state if status_obj else "0"
             
-            # 4. Modbus sturing (Alleen als de lader op status 5 'Laden' staat)
+            # 5. Modbus actie
             new_value_needed = False
-            diff = abs(ideal_target - self._last_sent_target)
-
-            if status_val == "5":
+            if status_val == "5": # Alleen tijdens laden
+                diff = abs(ideal_target - self._last_sent_target)
                 if ideal_target < self._last_sent_target or diff >= self._threshold:
-                    self._last_sent_target = round(ideal_target, 0) # Modbus wil gehele getallen
+                    self._last_sent_target = round(ideal_target, 0)
                     new_value_needed = True
 
             if new_value_needed:
-                _LOGGER.info("Ratio: Schrijf %s A naar Modbus voor zonnestroom optimalisatie", self._last_sent_target)
-                try:
-                    await self.hass.services.async_call(
-                        "modbus",
-                        "write_register",
-                        {
-                            "hub": MODBUS_HUB,
-                            "unit": SLAVE_ID,
-                            "address": REGISTER_WRITE_AMPERAGE,
-                            "value": int(self._last_sent_target)
-                        },
-                        blocking=True
-                    )
-                except Exception as e:
-                    _LOGGER.error("Ratio: Modbus schrijf fout: %s", e)
+                await self.hass.services.async_call(
+                    "modbus", "write_register",
+                    {
+                        "hub": MODBUS_HUB,
+                        "unit": SLAVE_ID,
+                        "address": REGISTER_WRITE_AMPERAGE,
+                        "value": int(self._last_sent_target)
+                    },
+                    blocking=True
+                )
 
             return {
                 "target": self._last_sent_target,
-                "status": "Laden" if status_val == "5" else "Stand-by/Gereed",
-                "h_max": round(h_max, 2),
-                "vrije_ruimte": round(23.0 - h_max, 2)
+                "status": status_val,
+                "vrije_ruimte": round(23.0 - h_max, 1),
+                "grid_l1_amps": round(g1, 1),
+                "grid_l2_amps": round(g2, 1),
+                "grid_l3_amps": round(g3, 1)
             }
 
         except Exception as err:
-            _LOGGER.error("Ratio: Kritieke fout in coordinator: %s", err)
-            raise UpdateFailed(f"Fout in Ratio berekening: {err}")
+            _LOGGER.error("Ratio Error: %s", err)
+            raise UpdateFailed(f"Fout: {err}")
