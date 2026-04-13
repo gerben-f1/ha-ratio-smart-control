@@ -1,51 +1,55 @@
-import logging
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.const import UnitOfElectricCurrent, UnitOfPower
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
-
-_LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([
         RatioTargetSensor(coordinator),
         RatioStatusSensor(coordinator),
-        RatioSolarPowerSensor(coordinator)
+        RatioVrijeRuimteSensor(coordinator)
     ])
 
-class RatioTargetSensor(SensorEntity):
+class RatioTargetSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator):
-        self.coordinator = coordinator
-        self._attr_name = "Ratio Target Amperage"
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_target"
-        self._attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
+        super().__init__(coordinator)
+        self._attr_name = "Ratio Smart Control Target"
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_target"
+        self._attr_native_unit_of_measurement = "A"
         self._attr_icon = "mdi:target-variant"
 
     @property
     def native_value(self):
         return self.coordinator.data.get("target")
 
-class RatioSolarPowerSensor(SensorEntity):
+class RatioVrijeRuimteSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator):
-        self.coordinator = coordinator
-        self._attr_name = "Mazda Solar Power"
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_solar"
-        self._attr_native_unit_of_measurement = UnitOfPower.WATT
-        self._attr_device_class = "power"
-        self._attr_icon = "mdi:solar-power"
+        super().__init__(coordinator)
+        self._attr_name = "Ratio Vrije Ruimte"
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_vrije_ruimte"
+        self._attr_native_unit_of_measurement = "A"
+        self._attr_icon = "mdi:gauge"
 
     @property
     def native_value(self):
-        return self.coordinator.data.get("solar_power")
+        return self.coordinator.data.get("vrije_ruimte")
 
-class RatioStatusSensor(SensorEntity):
+class RatioStatusSensor(CoordinatorEntity, SensorEntity):
+    _mapping = {"0": "Stand-by", "1": "Verbonden", "2": "Gepauzeerd", "3": "Klaar", "5": "Laden"}
+
     def __init__(self, coordinator):
-        self.coordinator = coordinator
-        self._attr_name = "Ratio Status"
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_status"
+        super().__init__(coordinator)
+        self._attr_name = "Ratio Lader Status"
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_status"
+        self._attr_icon = "mdi:ev-station"
 
     @property
     def native_value(self):
-        status_raw = self.coordinator.data.get("status")
-        mapping = {"0": "Stand-by", "1": "Verbonden", "2": "Pauze", "3": "Klaar", "5": "Laden"}
-        return mapping.get(str(status_raw), f"Status {status_raw}")
+        # We pakken de status direct uit de coordinator data
+        val = self.coordinator.data.get("status")
+        # Als de coordinator er al een tekst van heeft gemaakt ("Laden"),
+        # geven we die terug, anders checken we de mapping.
+        if isinstance(val, str) and not val.isdigit():
+            return val
+        raw = str(val)
+        return self._mapping.get(raw, f"Status {raw}")
