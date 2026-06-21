@@ -1,0 +1,55 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Ratio Smart Charging Control",
+        "description": "Stel je Ratio laadpaal in. Geef de Modbus-koppeling en de benodigde sensoren op.",
+        "data": {
+          "name": "Naam",
+          "hub": "Modbus hub naam",
+          "slave_id": "Slave ID",
+          "main_fuse_limit": "Hoofdzekering limiet (A)",
+          "max_charge_current": "Maximale laadstroom per lader (A)",
+          "l1_grid": "L1 Net (import) sensor",
+          "l1_export": "L1 Teruglevering (export) sensor",
+          "l2_grid": "L2 Net (import) sensor",
+          "l2_export": "L2 Teruglevering (export) sensor",
+          "l3_grid": "L3 Net (import) sensor",
+          "l3_export": "L3 Teruglevering (export) sensor",
+          "l1_ratio": "L1 Laadpaal stroom sensor",
+          "l2_ratio": "L2 Laadpaal stroom sensor",
+          "l3_ratio": "L3 Laadpaal stroom sensor",
+          "ratio_state_sensor": "Laadpaal status sensor"
+        }
+      }
+    },
+    "error": {
+      "already_configured": "Deze laadpaal is al geconfigureerd."
+    },
+    "abort": {
+      "already_configured": "Deze laadpaal is al geconfigureerd."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ratio Smart Charging Control instellingen",
+        "description": "Pas de hoofdzekeringlimiet, de maximale laadstroom en de gekoppelde sensoren aan.",
+        "data": {
+          "main_fuse_limit": "Hoofdzekering limiet (A)",
+          "max_charge_current": "Maximale laadstroom per lader (A)",
+          "l1_grid": "L1 Net (import) sensor",
+          "l1_export": "L1 Teruglevering (export) sensor",
+          "l2_grid": "L2 Net (import) sensor",
+          "l2_export": "L2 Teruglevering (export) sensor",
+          "l3_grid": "L3 Net (import) sensor",
+          "l3_export": "L3 Teruglevering (export) sensor",
+          "l1_ratio": "L1 Laadpaal stroom sensor",
+          "l2_ratio": "L2 Laadpaal stroom sensor",
+          "l3_ratio": "L3 Laadpaal stroom sensor",
+          "ratio_state_sensor": "Laadpaal status sensor"
+        }
+      }
+    }
+  }
+}

@@ -1,5 +1,10 @@
 DOMAIN = "ratio_smart_control"
-MODBUS_HUB = "modbus_ratio"
-SLAVE_ID = 127
+
+# Register om de laadstroom naar de paal te schrijven (0x4100 = 16640)
 REGISTER_WRITE_AMPERAGE = 16640
-REGISTER_READ_STATE = 16396
+
+# Standaard hoofdzekering limiet (handig voor fallback)
+DEFAULT_FUSE_LIMIT = 25.0
+
+# Standaard maximale laadstroom per lader (was hardcoded LADER_LIMIET)
+DEFAULT_MAX_CHARGE_CURRENT = 20.0
